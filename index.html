@@ -778,14 +778,6 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  let devMode = false;
-  const devToggle = document.getElementById('devToggle');
-  devToggle.addEventListener('click', () => {
-    devMode = !devMode;
-    devToggle.classList.toggle('on', devMode);
-    devToggle.textContent = devMode ? 'Preview mode: ON' : 'Preview mode';
-  });
-
   // limit styles to 5
   const stylesGroup = document.getElementById('stylesGroup');
   if (stylesGroup) {
@@ -801,7 +793,6 @@
   }
 
   function validateStep(n) {
-    if (devMode) return true;
     const stepEl = document.querySelector('.step[data-step="' + n + '"]');
     const required = stepEl.querySelectorAll('[required]');
     for (const f of required) {
