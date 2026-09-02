@@ -1,0 +1,3 @@
+# source photos kept locally; the page loads the .webp set only
+assets/collage/
+assets/artists/*.jpg
