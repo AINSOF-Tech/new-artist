@@ -589,6 +589,7 @@ img{display:block}
   color:var(--ink);margin-bottom:9px;letter-spacing:-.01em}
 .field-label .req{color:var(--req);margin-left:4px}
 .field-hint{font-size:var(--t-meta);color:var(--ink-2);margin-bottom:9px;line-height:1.5}
+#draftNote{margin-top:12px;margin-bottom:0}
 .field input,.field textarea,.field select{
   width:100%;border:0;border-radius:0;
   background:rgba(255,255,255,.022);
@@ -1577,7 +1578,7 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
   const navBox = document.getElementById('nav');
   const progressBox = document.getElementById('progress');
 
-  function showStep(n) {
+  function showStep(n, noScroll) {
     steps.forEach(s => s.classList.toggle('active', +s.dataset.step === n));
     labels.forEach(l => {
       const ls = +l.dataset.step;
@@ -1593,7 +1594,9 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
     prevBtn.disabled = n === 1;
     nextBtn.textContent = n === TOTAL_STEPS ? 'Submit ✓' : 'Continue →';
     errBox.classList.remove('show');
-    scrollToForm();
+    const note = document.getElementById('draftNote');
+    if (note && !noScroll) note.remove();
+    if (!noScroll) { saveDraft(); scrollToForm(); }
   }
 
   // Every step change lands on the form itself (progress bar + step header at
@@ -1614,6 +1617,79 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
     if (!force && Math.abs(window.scrollY - target) < 12) return;
     window.scrollTo({ top: target, behavior: 'smooth' });
   }
+
+  // ═══ DRAFT ═══
+  // Four steps on a phone means leaving the page to look up a CAE / IPI, and
+  // coming back to an empty form. Everything typed is kept in this browser
+  // until it is submitted, and never leaves it — the draft is dropped the
+  // moment the sheet has the row, and expires on its own after two weeks.
+  const DRAFT_KEY = 'ainsof.artist-form.v1';
+  const DRAFT_TTL = 14 * 24 * 60 * 60 * 1000;
+  let draftTimer = null;
+
+  function saveDraft() {
+    try {
+      const values = {};
+      new FormData(form).forEach((v, k) => {
+        if (values[k] === undefined) values[k] = v;
+        else values[k] = Array.isArray(values[k]) ? [...values[k], v] : [values[k], v];
+      });
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ t: Date.now(), step: currentStep, values }));
+    } catch (_) { /* private mode, or the quota is full — the form still works */ }
+  }
+
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+  }
+
+  function restoreDraft() {
+    let draft;
+    try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (_) { return false; }
+    if (!draft || !draft.values || Date.now() - (draft.t || 0) > DRAFT_TTL) { clearDraft(); return false; }
+
+    let restored = 0;
+    for (const [name, value] of Object.entries(draft.values)) {
+      const wanted = Array.isArray(value) ? value : [value];
+      const fields = form.querySelectorAll('[name="' + CSS.escape(name) + '"]');
+      if (!fields.length) continue;
+      fields.forEach(f => {
+        if (f.type === 'checkbox' || f.type === 'radio') {
+          if (wanted.includes(f.value)) { f.checked = true; restored++; }
+        } else if (wanted[0]) {
+          f.value = wanted[0]; restored++;
+        }
+      });
+    }
+    if (!restored) { clearDraft(); return false; }
+
+    currentStep = Math.min(Math.max(+draft.step || 1, 1), TOTAL_STEPS);
+    showStep(currentStep, true);
+    return true;
+  }
+
+  if (restoreDraft()) {
+    // said once, in the hint voice the fields already use, and gone on Continue
+    const note = document.createElement('div');
+    note.className = 'field-hint';
+    note.id = 'draftNote';
+    note.textContent = 'Picked up where you left off. Check anything that has changed, and carry on.';
+    const hdr = document.querySelector('.step[data-step="' + currentStep + '"] .step-header');
+    if (hdr) hdr.appendChild(note);
+
+    // the position the browser restores was measured against whatever step was
+    // open last time; if it leaves this one off-screen, snap to the form. No
+    // smooth scroll — on load that reads as the page moving under you.
+    requestAnimationFrame(() => {
+      const step = document.querySelector('.step.active').getBoundingClientRect();
+      if (step.bottom < window.innerHeight * 0.5 || step.top > window.innerHeight * 0.6) {
+        window.scrollTo({ top: Math.max(0, window.scrollY + progressBox.getBoundingClientRect().top - scrollPad()) });
+      }
+    });
+  }
+  form.addEventListener('input', () => {
+    clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 250);
+  });
+  form.addEventListener('change', saveDraft);
 
   // Clicking a completed step label goes back to it — same as pressing Back
   // that many times. Forward is only ever through Continue, so validation holds.
@@ -1685,6 +1761,21 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
         return false;
       }
     }
+    // step 2: the placeholder asks for 00 instead of +, and nothing enforced it.
+    // A "+" is the natural thing to type, so it is converted rather than refused.
+    if (n === 2) {
+      const phone = document.getElementById('phone');
+      let digits = phone.value.replace(/[\s().-]/g, '');
+      if (digits.startsWith('+')) digits = '00' + digits.slice(1);
+      if (!/^\d{7,15}$/.test(digits)) {
+        revealField(phone);
+        errBox.textContent = 'Please enter your phone number in digits only, with 00 and your country code — for example 00972501234567.';
+        errBox.classList.add('show');
+        return false;
+      }
+      phone.value = digits;
+    }
+
     // step 3: the CAE / IPI is what carries the royalty — 9 to 11 digits, no junk.
     if (n === 3) {
       const ipi = document.getElementById('ipi');
@@ -1696,6 +1787,27 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
         return false;
       }
       ipi.value = ipiDigits;   // the sheet gets digits, never "123 456-7890"
+    }
+
+    // step 4: the two link fields are optional, but "abc" in one is not a link
+    // and reached the sheet as-is. A bare host is completed rather than refused.
+    if (n === 4) {
+      const links = [['spotify', 'spotify', 'Spotify'], ['apple_music', 'apple', 'Apple Music']];
+      for (const [id, host, name] of links) {
+        const f = document.getElementById(id);
+        let v = f.value.trim();
+        if (!v) continue;
+        if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+        let url;
+        try { url = new URL(v); } catch (_) { url = null; }
+        if (!url || !url.hostname.toLowerCase().includes(host)) {
+          revealField(f);
+          errBox.textContent = 'That does not look like a ' + name + ' link. Paste the address of your artist page, or leave it blank and send it to or@ainsof.io later.';
+          errBox.classList.add('show');
+          return false;
+        }
+        f.value = url.href;
+      }
     }
 
     // step 4: require at least one production style
@@ -1754,6 +1866,7 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
       progressBox.style.display = 'none';
       navBox.style.display = 'none';
       successScreen.classList.add('active');
+      clearDraft();
       scrollToForm(true);
     } catch (err) {
       errBox.textContent = 'Submission failed. Please email or@ainsof.io directly.';
