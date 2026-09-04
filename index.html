@@ -107,6 +107,31 @@ img{display:block}
   -webkit-backdrop-filter:saturate(1.4) blur(16px);
   backdrop-filter:saturate(1.4) blur(16px);
   box-shadow:0 18px 40px -30px rgba(0,0,0,.9)}
+/* ══ BEGIN phone-nav ══ Or, 20.8.2026: "תמשיך לא לגעת בשום דבר חוץ מגרסת טלפון."
+   The bar is one component on ten pages and this is its phone half. It is
+   fenced by these two markers and byte-identical on every one of them on
+   purpose: sync_nav.py exists because hashing the ten copies on 16.8.2026
+   returned THREE different navs and nothing errored. Check this one the same
+   way — scripts/check_phone_nav.py.
+   ⚠️ NOTHING HERE EXISTS ABOVE 760px, which is the breakpoint the nav already
+   uses, so the phone keeps one boundary rather than gaining a second.
+
+   .stuck paints rgba(16,16,19,.72) under a saturate+blur. Over the home page's
+   artwork that IS the idea; over a 56px list on a 393px screen the two rows
+   beneath it read straight through as text, so the wordmark and the five links
+   sit inside somebody's track title at every scroll position. Measured on
+   WebKit / iPhone 14 Pro, 20.8.2026. On the phone the bar owns its ground. */
+@media (max-width:760px){
+  .brand.topnav,
+  .brand.topnav.stuck{background:var(--bg);
+    -webkit-backdrop-filter:none;backdrop-filter:none}
+  .brand.topnav.stuck{box-shadow:0 12px 26px -22px rgba(0,0,0,.95)}
+  /* The height it gives the links it takes off its own padding, so a 44px
+     touch target does not buy a taller bar on the smallest screen. */
+  .brand.topnav{padding-top:10px;padding-bottom:4px;row-gap:0}
+  .brand.topnav .tn-links a{min-height:44px;display:inline-flex;align-items:center}
+}
+/* ══ END phone-nav ══ */
 .topnav .tn-logo{border:0;display:block;flex:none}
 .topnav .logo{height:26px;width:auto}
 .tn-links{display:flex;align-items:center;gap:var(--s3)}
@@ -525,16 +550,18 @@ img{display:block}
 .progress-labels{display:flex;justify-content:space-between;margin-top:14px;
   font-size:12px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--ink-3);font-weight:600}
-/* ⚠️ the labels carry cursor:pointer and a hover colour on invoices.ainsof.io,
-   where clicking one jumps between steps. This form's script binds click on the
-   Back and Continue buttons only — nothing listens on the labels — so a pointer
-   cursor here promises an interaction that does not exist. They are a read-out,
-   and they now look like one. */
+/* as on invoices.ainsof.io, a label you have already completed jumps back to
+   that step. Only those carry the pointer — a step you have not reached yet is
+   a read-out and looks like one, so the cursor never promises a dead click. */
 .progress-labels span{flex:1;text-align:center;cursor:default;user-select:none;
   transition:color .3s var(--ease)}
 .progress-labels span:first-child{text-align:left}
 .progress-labels span:last-child{text-align:right}
 .progress-labels span.active{color:var(--ink)}
+.progress-labels span.is-nav{cursor:pointer}
+.progress-labels span.is-nav:hover,
+.progress-labels span.is-nav:focus-visible{color:var(--coral-ink)}
+.progress-labels span.is-nav:focus-visible{outline:1px solid var(--ring);outline-offset:4px}
 
 /* ═══ STEPS ═══ */
 .step-header{margin-bottom:var(--s4)}
@@ -611,6 +638,10 @@ img{display:block}
   .nav{flex-direction:column-reverse;align-items:stretch}
   .btn{width:100%}
 }
+
+/* validation focuses the offending field; the browser scrolls it to the very top,
+   which on mobile parks it underneath the sticky nav. Keep it clear of the bar. */
+.step input,.step select,.step textarea,.step .pill-group{scroll-margin-top:104px;scroll-margin-bottom:24px}
 
 .form-error{display:none;margin-top:var(--s2);padding:15px 18px;border-radius:0;
   background:rgba(226,85,85,.07);box-shadow:inset 0 0 0 1px rgba(226,85,85,.32);
@@ -714,6 +745,44 @@ footer a:hover{color:var(--ink)}
   border-top:1px solid var(--line);
   font-size:13.5px;line-height:1.6;color:var(--ink-3)}
 
+/* ═══ ARTIST FORM ON A PHONE ═══ measured in WebKit / iPhone 13, 390px.
+   Everything here was a number that only worked on a desk. */
+@media (max-width:640px){
+  /* two 168px columns put "National ID or passport" in a box that shows
+     "National ID or passp". A phone gets one field per line. */
+  .row{grid-template-columns:1fr}
+
+  /* iOS zooms the whole page in when a focused control is under 16px, and it
+     does not zoom back out — the rest of the form is then read at 1.2x with a
+     sideways scroll. 16px is the floor that stops it, not a taste choice. */
+  .field input,.field textarea,.field select{font-size:16px}
+
+  /* the step labels became navigation, so they need a hand-sized target: they
+     were 19px tall and touching each other edge to edge at 12px/.2em. */
+  .progress-labels{margin-top:6px;font-size:12px;letter-spacing:.06em}
+  .progress-labels span{padding:13px 0}
+
+  /* chips are a control too — same 44px floor as every other tap target */
+  .pill span{padding:13px 18px;font-size:14px}
+
+  /* the error sits under the Continue button, which is where you are when you
+     press it — but revealField then scrolls up to the field that needs fixing
+     and the message goes off-screen behind you. Measured on iPhone 13: with the
+     fields stacked one per line the two are 800px apart and never share a
+     screen. Pinned to the bottom edge, the message stays with you while you
+     scroll to the field. It needs a solid ground to be pinned over: #1F1518 is
+     the same rgba(226,85,85,.07) it already paints, resolved against --bg. */
+  .form-error.show{position:sticky;bottom:14px;z-index:5;
+    background:#1F1518;box-shadow:inset 0 0 0 1px rgba(226,85,85,.32),
+      0 18px 40px -24px rgba(0,0,0,.9)}
+
+  /* --s5 between the step tabs and the step title, and --s4 under the title,
+     are desk rhythm: on a 664px viewport they spend 124px so that one field
+     is visible below the fold. One step down the scale each buys back two. */
+  .progress{margin-bottom:var(--s3)}
+  .step-header{margin-bottom:var(--s3)}
+}
+
 /* the multi-select chips in steps 3 and 4. Kept as chips — they are a control,
    not a frame, so the radius-0 rule does not reach them. */
 .pill-group{display:flex;flex-wrap:wrap;gap:10px}
@@ -734,7 +803,7 @@ footer a:hover{color:var(--ink)}
 
 /* the form sits on its own below the guidelines, centred like every other
    single-column block on the site */
-.app{max-width:900px;margin:0 auto;padding:0 var(--s4) var(--s6)}
+.app{max-width:900px;margin:0 auto;padding:0 var(--s4) var(--s6);scroll-margin-top:86px}
 @media (max-width:640px){.app{padding:0 var(--s2) var(--s5)}}
 /* ═══ READABILITY FLOOR ═══ measured, not eyeballed.
    Composited every foreground over the real background it sits on (the plate,
@@ -800,7 +869,7 @@ footer a:hover{color:var(--ink)}
   <h1 class="hero-title">Join <em>AINSOF</em></h1>
   <p class="hero-lede">You write the music, we handle everything else.<br>
     Register once and we can contract you, register your works and pay you.</p>
-  <a class="hero-cta" href="#introScreen">Start &nbsp;&rarr;</a>
+  <a class="hero-cta" id="startCta" href="#formTop">Start &nbsp;&rarr;</a>
 </header>
 
 <!-- ═══ THE COLLAGE ═══ their composition, our language.
@@ -924,7 +993,7 @@ footer a:hover{color:var(--ink)}
   </aside>
 </section>
 
-<main class="app">
+<main class="app" id="formTop">
 
   <!-- progress -->
   <div class="progress" id="progress">
@@ -1510,21 +1579,68 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
 
   function showStep(n) {
     steps.forEach(s => s.classList.toggle('active', +s.dataset.step === n));
-    labels.forEach(l => l.classList.toggle('active', +l.dataset.step <= n));
+    labels.forEach(l => {
+      const ls = +l.dataset.step;
+      l.classList.toggle('active', ls <= n);
+      // you can go back to a step you have already completed, never skip forward
+      const nav = ls < n;
+      l.classList.toggle('is-nav', nav);
+      l.tabIndex = nav ? 0 : -1;
+      if (nav) { l.setAttribute('role', 'button'); }
+      else { l.removeAttribute('role'); }
+    });
     fill.style.width = (n / TOTAL_STEPS * 100) + '%';
     prevBtn.disabled = n === 1;
     nextBtn.textContent = n === TOTAL_STEPS ? 'Submit ✓' : 'Continue →';
     errBox.classList.remove('show');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToForm();
+  }
+
+  // Every step change lands on the form itself (progress bar + step header at
+  // the top of the viewport), never on the top of the page. If the form is
+  // already sitting there, don't move at all.
+  // The top nav is sticky, so the landing offset has to clear it — otherwise
+  // the progress bar ends up hidden behind the AINSOF bar.
+  const topNav = document.querySelector('.brand.topnav');
+  function scrollPad() {
+    return (topNav ? topNav.getBoundingClientRect().height : 0) + 24;
+  }
+  function scrollToForm(force) {
+    const anchor = progressBox && progressBox.offsetParent !== null
+      ? progressBox
+      : (successScreen.classList.contains('active') ? successScreen : progressBox);
+    if (!anchor) return;
+    const target = Math.max(0, window.scrollY + anchor.getBoundingClientRect().top - scrollPad());
+    if (!force && Math.abs(window.scrollY - target) < 12) return;
+    window.scrollTo({ top: target, behavior: 'smooth' });
+  }
+
+  // Clicking a completed step label goes back to it — same as pressing Back
+  // that many times. Forward is only ever through Continue, so validation holds.
+  labels.forEach(l => {
+    const goBack = () => {
+      const target = +l.dataset.step;
+      if (target < currentStep) { currentStep = target; showStep(currentStep); }
+    };
+    l.addEventListener('click', goBack);
+    l.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goBack(); }
+    });
+  });
+
+  // The hero "Start" button: go where the fields actually are.
+  const startCta = document.getElementById('startCta');
+  if (startCta) {
+    startCta.addEventListener('click', (e) => { e.preventDefault(); scrollToForm(true); });
   }
 
   // limit styles to 5
   const stylesGroup = document.getElementById('stylesGroup');
   if (stylesGroup) {
-    stylesGroup.addEventListener('change', () => {
+    stylesGroup.addEventListener('change', (e) => {
       const checked = stylesGroup.querySelectorAll('input:checked');
       if (checked.length > 5) {
-        event.target.checked = false;
+        e.target.checked = false;
         errBox.textContent = 'You can select up to 5 styles. Uncheck one to add another.';
         errBox.classList.add('show');
         setTimeout(() => errBox.classList.remove('show'), 3000);
@@ -1532,23 +1648,56 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
     });
   }
 
+  // Focus the offending field without letting the browser park it under the
+  // sticky nav — WebKit's focus scroll ignores scroll-margin.
+  function revealField(f) {
+    try { f.focus({ preventScroll: true }); } catch (_) { f.focus(); }
+    const pad = scrollPad();
+    const r = f.getBoundingClientRect();
+    if (r.top < pad || r.bottom > window.innerHeight - 24) {
+      window.scrollTo({ top: Math.max(0, window.scrollY + r.top - pad), behavior: 'smooth' });
+    }
+  }
+
   function validateStep(n) {
     const stepEl = document.querySelector('.step[data-step="' + n + '"]');
+    // "Not registered yet" is a dead end, and it has to say why — this runs
+    // before the generic required sweep so the user gets the real reason.
+    if (n === 3 && document.getElementById('performing_rights').value === 'None yet') {
+      revealField(document.getElementById('performing_rights'));
+      errBox.textContent = 'We register your works through your PRO, so you need one before we can sign you. Open an account with ACUM, ASCAP, BMI, PRS or your local society, then come back with your CAE / IPI number.';
+      errBox.classList.add('show');
+      return false;
+    }
+
     const required = stepEl.querySelectorAll('[required]');
     for (const f of required) {
       if (!f.value.trim()) {
-        f.focus();
+        revealField(f);
         errBox.textContent = 'Please fill in all required fields before continuing.';
         errBox.classList.add('show');
         return false;
       }
       if (f.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.value)) {
-        f.focus();
+        revealField(f);
         errBox.textContent = 'Please enter a valid email address.';
         errBox.classList.add('show');
         return false;
       }
     }
+    // step 3: the CAE / IPI is what carries the royalty — 9 to 11 digits, no junk.
+    if (n === 3) {
+      const ipi = document.getElementById('ipi');
+      const ipiDigits = ipi.value.replace(/[\s-]/g, '');
+      if (!/^\d{9,11}$/.test(ipiDigits)) {
+        revealField(ipi);
+        errBox.textContent = 'Your CAE / IPI is the 9 to 11 digit number your PRO issued you. Check it in your PRO portal.';
+        errBox.classList.add('show');
+        return false;
+      }
+      ipi.value = ipiDigits;   // the sheet gets digits, never "123 456-7890"
+    }
+
     // step 4: require at least one production style
     if (n === 4) {
       const stylesChecked = document.querySelectorAll('input[name="production_styles"]:checked');
@@ -1605,6 +1754,7 @@ l0 -30 -90 0 -90 0 0 30 c0 27 -3 30 -30 30 l-30 0 0 3210 0 3210 -30 0 c-27
       progressBox.style.display = 'none';
       navBox.style.display = 'none';
       successScreen.classList.add('active');
+      scrollToForm(true);
     } catch (err) {
       errBox.textContent = 'Submission failed. Please email or@ainsof.io directly.';
       errBox.classList.add('show');
